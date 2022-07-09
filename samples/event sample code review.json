@@ -1,7 +1,4 @@
-vidigummy의 comment(code review)
-updated_at 에 PR의 comment가 달린 시간이 적힌다.com/
-action: submitted
-review 에 다한 정보는 review 밑 객체
+
 {
   "action": "submitted",
   "review": {
