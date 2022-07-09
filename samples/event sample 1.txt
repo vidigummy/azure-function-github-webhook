@@ -1,4 +1,4 @@
-시나리오 1 : organization의 Repository에서 한 유저(vidigummy)가 1회 커밋 후 push(not PR)
+// 시나리오 1 : organization의 Repository에서 한 유저(vidigummy)가 1회 커밋 후 push(not PR)
 {
     "ref":"refs/heads/main","before":"39e9643565b53fe9140697d455e0cbaa479108cd"
     ,"after":"83402865465b02c056590bfeb540efe22b9866d4"
