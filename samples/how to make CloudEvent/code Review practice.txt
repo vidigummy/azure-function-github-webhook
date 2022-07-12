@@ -10,4 +10,5 @@
     "pr_id" : 992132244", <-pull_request/id, 
     "commit_id" : "caf0ca81e12b9c01d92df17df82ff53b76ae856e", <- review/commit_id
     "datacontenttype" : "text/xml"
+    "pr_url" : "암거나"
 }
