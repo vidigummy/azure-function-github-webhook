@@ -41,7 +41,7 @@ module.exports = async function (context, req) {
         cloudEventObj.commit_id = JSON.stringify(obj.review.commit_id).replace(/['"]+/g, '');
         cloudEventObj.state = JSON.stringify(obj.review.state).replace(/['"]+/g, '');
 
-    }else if(cloudEventObj.action == '"opened"'){
+    }else if(cloudEventObj.action == 'opened'){
         // PR Opened 발생 시
         // commits들에 대한 정보는 Parser에서 받아서 처리하는 것으로 진행할 예정.
         // action_type, action_id(pr의 id / 이름도 추가 가능하다.), action_time, commits_url, commits_cnt 를 가져올 것이다. 
@@ -51,7 +51,8 @@ module.exports = async function (context, req) {
         cloudEventObj.action_time = JSON.stringify(obj.pull_request.created_at).replace(/['"]+/g, '');
         cloudEventObj.commits_url = JSON.stringify(obj.pull_request.commits_url).replace(/['"]+/g, '');
         cloudEventObj.commits_cnt = JSON.stringify(obj.pull_request.commits).replace(/['"]+/g, '');
-
+        cloudEventObj.commits_label = JSON.stringify(obj.pull_request.head.label).replace(/['"]+/g, '');
+        cloudEventObj.commits_branch = JSON.stringify(obj.pull_request.head.ref).replace(/['"]+/g, '');
     }else if(cloudEventObj.action == 'closed'){
         // PR Closed(Merged, Reject 후 폐기)
         context.log("closed!");
@@ -59,6 +60,7 @@ module.exports = async function (context, req) {
         context.log(merged);
         if(merged == 'null'){
             context.log("Closed, but not merged.");
+
         }else{
             context.log("Closed, with merged.");
         }
