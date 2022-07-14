@@ -9,11 +9,31 @@ module.exports = async function (context, req) {
 
     // .replace(/['"]+/g, '') <- double quote problem solve (e.g. "\"hi\"")
     // 공통 부분 작성 (어디에서 왔는지 / 무슨 행동인지 / 행위자는 누구인지 / Organization id(이름 추가 가능) / repository id(이름도 추가 가능) / data_content_type )
-    cloudEventObj.source = '"github"'.replace(/['"]+/g, '');
-    cloudEventObj.action = JSON.stringify(obj.action).replace(/['"]+/g, '');
-    cloudEventObj.actor_id = JSON.stringify(obj.sender.id);
-    cloudEventObj.org_id = JSON.stringify(obj.organization.id);
-    cloudEventObj.repo_id = JSON.stringify(obj.repository.id);
+    cloudEventObj.source = 'github'.replace(/['"]+/g, '');
+
+    try{
+        cloudEventObj.action = JSON.stringify(obj.action).replace(/['"]+/g, '');
+        cloudEventObj.actor_id = JSON.stringify(obj.sender.id);
+        cloudEventObj.org_id = JSON.stringify(obj.organization.id);
+        cloudEventObj.repo_id = JSON.stringify(obj.repository.id);
+    }catch(e){
+        //push일 경우가 생김
+        try{
+            const pusher = JSON.stringify(obj.pusher.name);
+            if(pusher != null || pusher != 'null' || pusher != 'undefined'){
+                context.log("pushed");
+                cloudEventObj.action = 'pushed'
+            }
+        }catch(e){
+            const response = "undefined action triggered."
+            cloudEventObj.resHeader = response;
+            context.res = {
+                // status: 200, /* Defaults to 200 */
+                body: cloudEventObj
+            };
+        }
+    }   
+
     cloudEventObj.data_content_type = '"text/xml"'.replace(/['"]+/g, '');
 
     // 이 부분은 Event 종류별로 객체를 가져올 수 있는 것이 다르기 때문에, 분기문으로 작성했다. 성의없이 하드코딩하는게 미안하긴 한데.... 어쩔 수 없다고 생각한다. 견뎌라.
@@ -57,31 +77,39 @@ module.exports = async function (context, req) {
         // PR Closed(Merged, Reject 후 폐기)
         context.log("closed!");
         const merged = JSON.stringify(obj.pull_request.merged_at);
-        context.log(merged);
+        cloudEventObj.action_time = JSON.stringify(obj.pull_request.closed_at).replace(/['"]+/g, '');
+        cloudEventObj.commits_label = JSON.stringify(obj.pull_request.head.label).replace(/['"]+/g, '');
+        cloudEventObj.commits_branch = JSON.stringify(obj.pull_request.head.ref).replace(/['"]+/g, '');
+        cloudEventObj.merge_to_label = JSON.stringify(obj.pull_request.base.label).replace(/['"]+/g, '');
+        cloudEventObj.merge_to_branch = JSON.stringify(obj.pull_request.base.ref).replace(/['"]+/g, '');
+
         if(merged == 'null'){
             context.log("Closed, but not merged.");
-
+            cloudEventObj.action_type = 'cancel_pull_request';
         }else{
             context.log("Closed, with merged.");
+            cloudEventObj.merge_time = JSON.stringify(obj.pull_request.merged_at).replace(/['"]+/g, '');
+            cloudEventObj.action_type = 'accept_pull_request';
         }
+    }else if(cloudEventObj.action == 'pushed'){
+        //pushed 될 경우 어떻게 될 것인가.
+        context.log("pushed");
+        cloudEventObj.action_type = 'push';
+        cloudEventObj.action_time = JSON.stringify(obj.repository.updated_at).replace(/['"]+/g, '');
+    }else if(cloudEventObj.action == 'synchronized'){
+        context.log("synchronized");
     }else{
         // push의 경우에 가능함을 확인함.
         context.log(cloudEventObj.action);
         context.log("잘 수 없어.");
     }
 
-    context.log(JSON.stringify(cloudEventObj));
+    // context.log(JSON.stringify(cloudEventObj));
     
-
-    const name = (req.query.name || (req.body && req.body.name));
-
-    const responseMessage = name
-        ? "Hello, " + name + ". This HTTP triggered function executed successfully. 날 봐 날 봐 귀순"
-        : "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response. 날 봐 날 봐 귀순";
 
     context.res = {
         // status: 200, /* Defaults to 200 */
-        body: responseMessage
+        body: cloudEventObj
     };
 
 
