@@ -1,4 +1,5 @@
 const send = require("./send.js");
+const send_post = require("./send_post.js");
 
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
@@ -49,7 +50,7 @@ module.exports = async function (context, req) {
         cloudEventObj.action_time = JSON.stringify(obj.comment.created_at).replace(/['"]+/g, '');
 
         cloudEventObj.pr_url = JSON.stringify(obj.issue.pull_request.url).replace(/['"]+/g, '');
-        cloudEventObj.action_id = JSON.stringify(obj.issue.number).replace(/['"]+/g, '');
+
     }else if(cloudEventObj.action == 'submitted'){
         // code review  발생 시
         // action의 타입(코드 리뷰를 뜻한다.) / 발생 시각 / review가 있는 pr의 url / review가 있는 pr의 id / review가 달린 commit의 id / review의 결과(comment/approve/request change)
@@ -58,7 +59,6 @@ module.exports = async function (context, req) {
             // Approve : Comment와 다르게 리뷰어가 승인을 하는 것으로, 머지해도 괜찮다는 의견을 보내는 것이다. <- 두 번 보내짐.
             // Request changes : 말 그대로 변경을 요청하는 것으로, 승인을 거부하는 것을 뜻한다.
         cloudEventObj.action_type = 'review';
-        cloudEventObj.action_id = JSON.stringify(obj.review.id).replace(/['"]+/g, '');
         cloudEventObj.action_time = JSON.stringify(obj.review.submitted_at).replace(/['"]+/g, '');
         cloudEventObj.pr_url = JSON.stringify(obj.review.pull_request_url).replace(/['"]+/g, '');
         cloudEventObj.pr_id = JSON.stringify(obj.pull_request.id).replace(/['"]+/g, '');
@@ -71,24 +71,19 @@ module.exports = async function (context, req) {
         // action_type, action_id(pr의 id / 이름도 추가 가능하다.), action_time, commits_url, commits_cnt 를 가져올 것이다. 
         context.log("opened!")
         cloudEventObj.action_type = 'pull_request';
-        cloudEventObj.open_id = JSON.stringify(obj.number).replace(/['"]+/g, '');
         cloudEventObj.action_id = JSON.stringify(obj.pull_request.id).replace(/['"]+/g, '');
         cloudEventObj.action_time = JSON.stringify(obj.pull_request.created_at).replace(/['"]+/g, '');
         cloudEventObj.commits_url = JSON.stringify(obj.pull_request.commits_url).replace(/['"]+/g, '');
         cloudEventObj.commits_cnt = JSON.stringify(obj.pull_request.commits).replace(/['"]+/g, '');
         cloudEventObj.commits_label = JSON.stringify(obj.pull_request.head.label).replace(/['"]+/g, '');
         cloudEventObj.commits_branch = JSON.stringify(obj.pull_request.head.ref).replace(/['"]+/g, '');
-
     }else if(cloudEventObj.action == 'closed'){
         // PR Closed(Merged, Reject 후 폐기)
         context.log("closed!");
         const merged = JSON.stringify(obj.pull_request.merged_at);
-        cloudEventObj.close_id = JSON.stringify(obj.number).replace(/['"]+/g, '');
-        cloudEventObj.pr_open_id = JSON.stringify(obj.pull_request.id).replace(/['"]+/g, '');
         cloudEventObj.action_time = JSON.stringify(obj.pull_request.closed_at).replace(/['"]+/g, '');
         cloudEventObj.commits_label = JSON.stringify(obj.pull_request.head.label).replace(/['"]+/g, '');
         cloudEventObj.commits_branch = JSON.stringify(obj.pull_request.head.ref).replace(/['"]+/g, '');
-        cloudEventObj.commits_url = JSON.stringify(obj.pull_request.commits_url).replace(/['"]+/g, '');
         cloudEventObj.merge_to_label = JSON.stringify(obj.pull_request.base.label).replace(/['"]+/g, '');
         cloudEventObj.merge_to_branch = JSON.stringify(obj.pull_request.base.ref).replace(/['"]+/g, '');
 
@@ -100,37 +95,35 @@ module.exports = async function (context, req) {
             cloudEventObj.merge_time = JSON.stringify(obj.pull_request.merged_at).replace(/['"]+/g, '');
             cloudEventObj.action_type = 'accept_pull_request';
         }
+    }else if(cloudEventObj.action == 'pushed'){
+        //pushed 될 경우 어떻게 될 것인가.
+        context.log("pushed");
+        cloudEventObj.action_type = 'push';
+        cloudEventObj.action_time = JSON.stringify(obj.repository.updated_at).replace(/['"]+/g, '');
+    }else if(cloudEventObj.action == 'synchronized'){
+        context.log("synchronized");
     }else{
         // push의 경우에 가능함을 확인함.
         context.log(cloudEventObj.action);
-        context.action = 'nothing';
+        context.log("잘 수 없어.");
     }
 
     // context.log(JSON.stringify(cloudEventObj));
 
     // EventHubs로 보내는 부분 작업중
-    if(context.action == 'nothing'){
+    try{
+        await send_post.sender(cloudEventObj, context);
         context.res = {
-            body: "not valid data"
+            // status: 200, /* Defaults to 200 */
+            body: cloudEventObj
         };
-    }
-    else{
-        try{
-            await send.sender(cloudEventObj, context);
-            cloudEventObj.result_state = "success";
-            context.res = {
-                // status: 200, /* Defaults to 200 */
-                body: cloudEventObj
-            };
-            context.log("test 성공")
-        }catch(e){
-            context.log(e);
-            context.res ={
-                body : "실패"
-            }
+        context.log("test 성공")
+    }catch(e){
+        context.log(e);
+        context.res ={
+            body : "실패"
         }
     }
-
 
 }
 
